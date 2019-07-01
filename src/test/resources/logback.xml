@@ -8,6 +8,7 @@
     </appender>
 
     <logger name="lab.cbadenes.hiv" level="INFO"/>
+    <logger name="stats" level="INFO"/>
 
     <root level="ERROR">
         <appender-ref ref="STDOUT" />

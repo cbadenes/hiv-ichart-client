@@ -1,6 +1,7 @@
 package lab.cbadenes.hiv;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lab.cbadenes.hiv.io.WriterFactory;
 import lab.cbadenes.hiv.model.Interaction;
 import lab.cbadenes.hiv.model.PatientsPexRecetaSheet;
 import lab.cbadenes.hiv.model.PatientsSheet;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -32,6 +34,7 @@ public class PatientsStudyIntTest {
 
     public static final String SEPARATOR = ";";
 
+
     @Test
     public void execute() throws IOException, InvalidFormatException {
 
@@ -44,25 +47,13 @@ public class PatientsStudyIntTest {
         String outputAtcArv             = "output/patients-per-atc-arv.csv";
 
 
-        File outputFile = new File(output);
-        if (outputFile.exists()) outputFile.delete();
-        else outputFile.getParentFile().mkdirs();
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(output, false)));
+        BufferedWriter writer = WriterFactory.newWriter(output);
 
-        File outputFile2 = new File(outputStatus);
-        if (outputFile2.exists()) outputFile2.delete();
-        else outputFile2.getParentFile().mkdirs();
-        BufferedWriter writer2 = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputStatus, false)));
+        BufferedWriter writer2 = WriterFactory.newWriter(outputStatus);
 
-        File outputFile3 = new File(outputAtcComed);
-        if (outputFile3.exists()) outputFile3.delete();
-        else outputFile3.getParentFile().mkdirs();
-        BufferedWriter writer3 = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputAtcComed, false)));
+        BufferedWriter writer3 = WriterFactory.newWriter(outputAtcComed);
 
-        File outputFile4 = new File(outputAtcArv);
-        if (outputFile4.exists()) outputFile4.delete();
-        else outputFile4.getParentFile().mkdirs();
-        BufferedWriter writer4 = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outputAtcArv, false)));
+        BufferedWriter writer4 = WriterFactory.newWriter(outputAtcArv);
 
         List<String> stopComeds = new ArrayList<>();
         BufferedReader reader1 = new BufferedReader(new InputStreamReader(new FileInputStream(inputComedPex)));
@@ -205,13 +196,25 @@ public class PatientsStudyIntTest {
 
         writer2.write("Interaction_Status" +SEPARATOR + "Patients" + "\n");
 
+
+        Set<String> nonDuplicatedPatients = new TreeSet<>();
         patientsPerInteractionStatus.entrySet().forEach(entry -> {
             try {
-                writer2.write(entry.getKey() + SEPARATOR + entry.getValue().stream().distinct().count() + "\n");
+                BufferedWriter statusWriter = WriterFactory.newWriter(Paths.get("output","status","patients-"+entry.getKey()+"-status.csv").toFile().getAbsolutePath());
+                List<String> entryPatients = entry.getValue().stream().distinct().collect(Collectors.toList());
+                for(String patient: entryPatients ){
+                    statusWriter.write(patient+"\n");
+                }
+                statusWriter.close();
+                if (entry.getKey() == 1 || entry.getKey() == 2 || entry.getKey() == 5){
+                    nonDuplicatedPatients.addAll(entryPatients);
+                }
+                writer2.write(entry.getKey() + SEPARATOR + entryPatients.size() + "\n");
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
+        System.out.println("Non-Duplicated Patients Status (1,2,5): " + nonDuplicatedPatients.size());
 
 
         // Write patients-per-atc-comeds.csv
@@ -223,15 +226,21 @@ public class PatientsStudyIntTest {
         header3.append("\n");
         writer3.write(header3.toString());
 
+
+
+
         for(Map.Entry<String,List<String>> patientsPerAtc : patientsPerAtcComedMap.entrySet().stream().sorted((a,b) -> a.getKey().compareTo(b.getKey())).collect(Collectors.toList())){
             String[] values = patientsPerAtc.getKey().split("-");
             StringBuilder row = new StringBuilder();
             row.append(values[0]).append(SEPARATOR);
             row.append(values[1]).append(SEPARATOR);
-            row.append(patientsPerAtc.getValue().stream().distinct().count()).append(SEPARATOR);
+            List<String> comedPatients = patientsPerAtc.getValue().stream().distinct().collect(Collectors.toList());
+
+            row.append(comedPatients.size()).append(SEPARATOR);
             row.append("\n");
             writer3.write(row.toString());
         }
+
 
         // Write patients-per-atc-arv.csv
 
@@ -242,15 +251,23 @@ public class PatientsStudyIntTest {
         header4.append("\n");
         writer4.write(header4.toString());
 
+
+
+
+
+
         for(Map.Entry<String,List<String>> patientsPerAtcArv : patientsPerAtcArvMap.entrySet().stream().sorted((a,b) -> a.getKey().compareTo(b.getKey())).collect(Collectors.toList())){
             String[] values = patientsPerAtcArv.getKey().split("-");
             StringBuilder row = new StringBuilder();
             row.append(values[0]).append(SEPARATOR);
             row.append(values[1]).append(SEPARATOR);
-            row.append(patientsPerAtcArv.getValue().stream().distinct().count()).append(SEPARATOR);
+            List<String> patientsArv = patientsPerAtcArv.getValue().stream().distinct().collect(Collectors.toList());
+            row.append(patientsArv.size()).append(SEPARATOR);
             row.append("\n");
             writer4.write(row.toString());
         }
+
+
 
 
         writer.close();
